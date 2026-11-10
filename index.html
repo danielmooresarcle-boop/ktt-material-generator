@@ -1,0 +1,2065 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="在浏览器本地编辑并导出快团团商品海报。">
+  <title>快团团素材生成器</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --paper: #ffffff;
+      --canvas: #f0f1ed;
+      --canvas-line: rgba(31, 36, 33, 0.055);
+      --ink: #202421;
+      --muted: #6f7771;
+      --line: #dfe3df;
+      --line-strong: #c7cdc8;
+      --soft: #f6f7f4;
+      --coral: #f04f4f;
+      --coral-dark: #d43f3f;
+      --coral-soft: #fff0ee;
+      --jade: #13866f;
+      --jade-soft: #eaf6f1;
+      --shadow: 0 22px 70px rgba(36, 42, 38, 0.14);
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 22px;
+      font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      min-width: 320px;
+      background: var(--canvas);
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background: var(--canvas);
+    }
+
+    button,
+    input,
+    select,
+    textarea {
+      font: inherit;
+    }
+
+    button,
+    input[type="file"],
+    select {
+      cursor: pointer;
+    }
+
+    button:focus-visible,
+    input:focus-visible,
+    select:focus-visible,
+    textarea:focus-visible {
+      outline: 3px solid rgba(240, 79, 79, 0.22);
+      outline-offset: 2px;
+    }
+
+    .app-shell {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: minmax(400px, 420px) minmax(0, 1fr);
+    }
+
+    .editor-panel {
+      position: relative;
+      z-index: 2;
+      height: 100vh;
+      overflow-y: auto;
+      background: var(--paper);
+      border-right: 1px solid var(--line);
+      scrollbar-gutter: stable;
+    }
+
+    .editor-header {
+      position: sticky;
+      top: 0;
+      z-index: 3;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 20px 24px 18px;
+      background: rgba(255, 255, 255, 0.96);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(16px);
+    }
+
+    .brand-mark {
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      flex: 0 0 auto;
+      border-radius: 12px;
+      color: #fff;
+      background: var(--coral);
+      font-size: 20px;
+      font-weight: 900;
+      box-shadow: inset 0 -3px 0 rgba(124, 20, 20, 0.12);
+    }
+
+    .brand-copy {
+      min-width: 0;
+    }
+
+    .brand-copy h1 {
+      margin: 0;
+      font-size: 18px;
+      line-height: 1.25;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-copy p {
+      margin: 3px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .local-chip {
+      margin-left: auto;
+      padding: 5px 9px;
+      border: 1px solid #b9ddd2;
+      border-radius: 999px;
+      color: var(--jade);
+      background: var(--jade-soft);
+      font-size: 11px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .editor-form {
+      padding: 4px 24px 112px;
+    }
+
+    .form-section {
+      margin: 0;
+      padding: 22px 0;
+      border: 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .form-section:last-of-type {
+      border-bottom: 0;
+    }
+
+    .section-heading {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 14px;
+    }
+
+    .section-heading h2,
+    .form-section legend {
+      margin: 0;
+      padding: 0;
+      color: var(--ink);
+      font-size: 14px;
+      line-height: 1.4;
+      font-weight: 800;
+    }
+
+    .section-heading span {
+      color: var(--muted);
+      font-size: 11px;
+      white-space: nowrap;
+    }
+
+    .template-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 9px;
+    }
+
+    .template-card {
+      min-height: 92px;
+      padding: 9px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      color: var(--ink);
+      background: var(--paper);
+      text-align: left;
+    }
+
+    .template-card[aria-pressed="true"] {
+      border-color: var(--coral);
+      background: #fff8f7;
+      box-shadow: 0 0 0 3px rgba(240, 79, 79, 0.16);
+      transform: translateY(-1px);
+    }
+
+    .template-card.clean[aria-pressed="true"] {
+      border-color: #1094ae;
+      background: #f0fbfd;
+      box-shadow: 0 0 0 3px rgba(16, 148, 174, 0.16);
+    }
+
+    .template-card.boom[aria-pressed="true"] {
+      border-color: #f17835;
+      background: #fff7f1;
+      box-shadow: 0 0 0 3px rgba(241, 120, 53, 0.17);
+    }
+
+    .template-card[aria-pressed="true"] .template-name {
+      font-weight: 900;
+    }
+
+    .template-preview {
+      height: 46px;
+      display: grid;
+      gap: 4px;
+      margin-bottom: 8px;
+      padding: 6px;
+      overflow: hidden;
+      border-radius: 5px;
+      background: var(--soft);
+    }
+
+    .template-preview::before,
+    .template-preview::after {
+      content: "";
+      display: block;
+      border-radius: 3px;
+      background: currentColor;
+      opacity: 0.82;
+    }
+
+    .template-card.classic {
+      color: var(--coral);
+    }
+
+    .template-card.classic .template-preview::before {
+      width: 58%;
+      margin-inline: auto;
+    }
+
+    .template-card.classic .template-preview::after {
+      width: 82%;
+      height: 5px;
+      margin-inline: auto;
+      opacity: 0.32;
+    }
+
+    .template-card.clean {
+      color: #1094ae;
+    }
+
+    .template-card.clean .template-preview {
+      grid-template-columns: 42% 1fr;
+    }
+
+    .template-card.boom {
+      color: #f17835;
+    }
+
+    .template-card.boom .template-preview::before {
+      height: 24px;
+    }
+
+    .template-name {
+      display: block;
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .field-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0 12px;
+    }
+
+    .field {
+      min-width: 0;
+      margin-top: 13px;
+    }
+
+    .field-grid > .field:nth-child(-n + 2),
+    .field-grid + .field {
+      margin-top: 0;
+    }
+
+    .field.span-2 {
+      grid-column: 1 / -1;
+    }
+
+    .field label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 7px;
+      color: #505852;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .field label small {
+      color: #929993;
+      font-size: 10px;
+      font-weight: 500;
+    }
+
+    .field-message {
+      min-height: 17px;
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 10px;
+      line-height: 1.45;
+    }
+
+    .field-message.is-error {
+      color: #c43c3c;
+    }
+
+    .field-message.is-warning {
+      color: #9b6814;
+    }
+
+    .field-message.is-valid {
+      color: var(--jade);
+    }
+
+    input[aria-invalid="true"] {
+      border-color: #d94b4b;
+      background: #fff8f7;
+      box-shadow: 0 0 0 3px rgba(217, 75, 75, 0.09);
+    }
+
+    input[type="text"],
+    input[type="number"],
+    select,
+    textarea {
+      width: 100%;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius-sm);
+      color: var(--ink);
+      background: var(--paper);
+      transition: border-color 150ms ease, box-shadow 150ms ease;
+    }
+
+    input[type="text"],
+    input[type="number"],
+    select {
+      height: 42px;
+      padding: 0 11px;
+    }
+
+    textarea {
+      min-height: 88px;
+      padding: 10px 11px;
+      line-height: 1.55;
+      resize: vertical;
+    }
+
+    input[type="text"]:focus,
+    input[type="number"]:focus,
+    select:focus,
+    textarea:focus {
+      border-color: var(--coral);
+      box-shadow: 0 0 0 3px rgba(240, 79, 79, 0.1);
+      outline: 0;
+    }
+
+    .upload-box {
+      position: relative;
+      min-height: 76px;
+      display: grid;
+      place-items: center;
+      padding: 14px;
+      border: 1px dashed #bfc6c0;
+      border-radius: var(--radius-sm);
+      color: var(--muted);
+      background: var(--soft);
+      text-align: center;
+    }
+
+    .upload-box strong {
+      display: block;
+      margin-bottom: 3px;
+      color: var(--ink);
+      font-size: 12px;
+    }
+
+    .upload-box span {
+      font-size: 10px;
+      line-height: 1.4;
+    }
+
+    .upload-box input {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    .upload-status {
+      min-height: 32px;
+      margin: 6px 2px 0;
+      color: var(--muted);
+      font-size: 10px;
+      line-height: 1.5;
+      overflow-wrap: anywhere;
+    }
+
+    .upload-status[data-state="ready"] {
+      color: #277263;
+    }
+
+    .upload-status[data-state="error"] {
+      color: #c83f3f;
+    }
+
+    .point-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .points-status,
+    .empty-points {
+      margin: 9px 0 0;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.5;
+    }
+
+    .empty-points {
+      margin: 0;
+      padding: 13px;
+      border: 1px dashed var(--line-strong);
+      border-radius: var(--radius-sm);
+      background: var(--soft);
+      text-align: center;
+    }
+
+    .point-row {
+      display: grid;
+      grid-template-columns: 26px 1fr 36px;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .point-index {
+      width: 26px;
+      height: 26px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      color: #fff;
+      background: var(--coral);
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .remove-point {
+      width: 36px;
+      height: 36px;
+      border: 0;
+      border-radius: var(--radius-sm);
+      color: #9c5656;
+      background: var(--coral-soft);
+      font-size: 18px;
+    }
+
+    .secondary-button {
+      width: 100%;
+      margin-top: 10px;
+      padding: 10px 12px;
+      border: 1px dashed var(--line-strong);
+      border-radius: var(--radius-sm);
+      color: #535c55;
+      background: var(--paper);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .privacy-note {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      margin: 11px 0 0;
+      padding: 10px 11px;
+      border-radius: var(--radius-sm);
+      color: #356858;
+      background: var(--jade-soft);
+      font-size: 11px;
+      line-height: 1.55;
+    }
+
+    .privacy-note::before {
+      content: "✓";
+      flex: 0 0 auto;
+      font-weight: 900;
+    }
+
+    .editor-actions {
+      position: sticky;
+      bottom: 0;
+      z-index: 3;
+      display: grid;
+      grid-template-columns: 1fr 1.3fr;
+      gap: 10px;
+      margin: 0 -24px;
+      padding: 16px 24px 20px;
+      border-top: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.97);
+      backdrop-filter: blur(16px);
+    }
+
+    .reset-note {
+      grid-column: 1 / -1;
+      margin: 0 2px -2px;
+      color: #8a6010;
+      font-size: 11px;
+      line-height: 1.45;
+    }
+
+    .action-button {
+      min-height: 44px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .action-button.reset {
+      border: 1px solid var(--line-strong);
+      color: var(--ink);
+      background: var(--paper);
+    }
+
+    .action-button.export {
+      border: 1px solid var(--ink);
+      color: #fff;
+      background: var(--ink);
+    }
+
+    .export-status {
+      grid-column: 1 / -1;
+      min-height: 17px;
+      margin: -2px 2px 0;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.45;
+    }
+
+    .export-status[data-state="working"] {
+      color: #85610a;
+    }
+
+    .export-status[data-state="success"] {
+      color: #28755e;
+    }
+
+    .export-status[data-state="error"] {
+      color: #b83232;
+    }
+
+    .action-button:disabled,
+    .remove-point:disabled,
+    .secondary-button:disabled {
+      cursor: not-allowed;
+      opacity: 0.58;
+    }
+
+    .preview-stage {
+      min-width: 0;
+      height: 100vh;
+      min-height: 0;
+      display: grid;
+      grid-template-rows: 1fr;
+      background-color: var(--canvas);
+      background-image:
+        linear-gradient(var(--canvas-line) 1px, transparent 1px),
+        linear-gradient(90deg, var(--canvas-line) 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+
+    .poster-bench {
+      min-width: 0;
+      min-height: 0;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      overflow: hidden;
+    }
+
+    .poster-frame {
+      position: relative;
+      width: min(100%, 390px, calc((100vh - 48px) * 0.5625));
+      aspect-ratio: 720 / 1280;
+      overflow: hidden;
+      border: 1px solid rgba(171, 178, 172, 0.9);
+      border-radius: 3px;
+      background: var(--paper);
+      box-shadow: var(--shadow);
+    }
+
+    #posterCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      background: var(--paper);
+    }
+
+    @media (max-width: 980px) {
+      .app-shell {
+        grid-template-columns: 1fr;
+      }
+
+      .editor-panel {
+        height: auto;
+        overflow: visible;
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .preview-stage {
+        height: auto;
+        min-height: auto;
+      }
+
+      .poster-bench {
+        padding: 28px 18px 44px;
+        overflow: visible;
+      }
+
+      .poster-frame {
+        width: min(100%, 390px);
+      }
+    }
+
+    @media (max-width: 600px) {
+      .editor-header {
+        padding: 16px;
+      }
+
+      .editor-form {
+        padding: 2px 16px 92px;
+      }
+
+      .field-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .field.span-2 {
+        grid-column: auto;
+      }
+
+      .editor-actions {
+        margin: 0 -16px;
+        padding: 13px 16px 16px;
+      }
+
+      .poster-bench {
+        padding-inline: 14px;
+      }
+    }
+
+    @media (max-width: 390px) {
+      .template-grid {
+        gap: 6px;
+      }
+
+      .template-card {
+        min-height: 82px;
+        padding: 7px;
+      }
+
+      .template-preview {
+        height: 40px;
+      }
+
+      .brand-copy p {
+        display: none;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app-shell">
+    <aside class="editor-panel" aria-label="海报内容编辑区">
+      <header class="editor-header">
+        <div class="brand-mark" aria-hidden="true">团</div>
+        <div class="brand-copy">
+          <h1>快团团素材生成器</h1>
+          <p>填写商品信息，制作分享海报</p>
+        </div>
+        <span class="local-chip">本机处理</span>
+      </header>
+
+      <form class="editor-form">
+        <section class="form-section" aria-labelledby="templateHeading">
+          <div class="section-heading">
+            <h2 id="templateHeading">选择版式</h2>
+            <span>3 种模板</span>
+          </div>
+          <div class="template-grid" role="group" aria-label="海报版式">
+            <button class="template-card classic" type="button" data-template="classic" aria-pressed="true">
+              <span class="template-preview" aria-hidden="true"></span>
+              <span class="template-name">居中促销</span>
+            </button>
+            <button class="template-card clean" type="button" data-template="clean" aria-pressed="false">
+              <span class="template-preview" aria-hidden="true"></span>
+              <span class="template-name">左图清单</span>
+            </button>
+            <button class="template-card boom" type="button" data-template="boom" aria-pressed="false">
+              <span class="template-preview" aria-hidden="true"></span>
+              <span class="template-name">大图爆款</span>
+            </button>
+          </div>
+        </section>
+
+        <section class="form-section" aria-labelledby="basicHeading">
+          <div class="section-heading">
+            <h2 id="basicHeading">基础信息</h2>
+            <span>海报顶部内容</span>
+          </div>
+          <div class="field-grid">
+            <div class="field">
+              <label for="topTag">顶部标签</label>
+              <input id="topTag" name="topTag" type="text" value="今日开团">
+            </div>
+            <div class="field">
+              <label for="brandName">团长昵称／品牌</label>
+              <input id="brandName" name="brandName" type="text" value="小美优选·团长">
+            </div>
+            <div class="field span-2">
+              <label for="productTitle">商品标题</label>
+              <input id="productTitle" name="productTitle" type="text" value="【新疆直发】阿克苏冰糖心苹果 5斤装">
+            </div>
+            <div class="field span-2">
+              <label for="subtitle">副标题</label>
+              <input id="subtitle" name="subtitle" type="text" value="咬一口爆汁甜脆 · 产地现摘现发">
+            </div>
+          </div>
+        </section>
+
+        <section class="form-section" aria-labelledby="imageHeading">
+          <div class="section-heading">
+            <h2 id="imageHeading">图片素材</h2>
+            <span>不会上传到服务器</span>
+          </div>
+          <div class="field-grid">
+            <div class="field">
+              <label for="productImage">商品主图</label>
+              <label class="upload-box" for="productImage">
+                <span><strong>选择商品图片</strong>支持 PNG、JPG，选择后可再次更换</span>
+                <input id="productImage" name="productImage" type="file" accept="image/png,image/jpeg,.png,.jpg,.jpeg" aria-describedby="productImageStatus">
+              </label>
+              <p class="upload-status" id="productImageStatus" data-state="empty" aria-live="polite">尚未选择，海报显示商品图占位。</p>
+            </div>
+            <div class="field">
+              <label for="qrImage">已有二维码</label>
+              <label class="upload-box" for="qrImage">
+                <span><strong>选择已有二维码图片</strong>支持 PNG、JPG，建议使用清晰方图</span>
+                <input id="qrImage" name="qrImage" type="file" accept="image/png,image/jpeg,.png,.jpg,.jpeg" aria-describedby="qrImageStatus">
+              </label>
+              <p class="upload-status" id="qrImageStatus" data-state="empty" aria-live="polite">尚未选择，海报显示二维码占位。</p>
+            </div>
+            <div class="field">
+              <label for="imageRatio">主图比例</label>
+              <select id="imageRatio" name="imageRatio">
+                <option value="auto">自动识别</option>
+                <option value="3:4">3:4 竖图</option>
+                <option value="1:1">1:1 方图</option>
+                <option value="original">保留原图比例</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="imageFit">展示方式</label>
+              <select id="imageFit" name="imageFit">
+                <option value="contain">完整展示</option>
+                <option value="cover">铺满裁切</option>
+              </select>
+            </div>
+          </div>
+          <p class="privacy-note">图片仅在当前浏览器中处理，刷新或关闭页面后不会自动保存。</p>
+        </section>
+
+        <section class="form-section" aria-labelledby="pointsHeading">
+          <div class="section-heading">
+            <h2 id="pointsHeading">核心卖点</h2>
+            <span>最多 6 条</span>
+          </div>
+          <div id="pointsList" class="point-list"></div>
+          <p id="pointsStatus" class="points-status" aria-live="polite"></p>
+          <button id="addPoint" class="secondary-button" type="button">＋ 添加一条卖点</button>
+        </section>
+
+        <section class="form-section" aria-labelledby="conversionHeading">
+          <div class="section-heading">
+            <h2 id="conversionHeading">价格与转化文案</h2>
+            <span>成交信息</span>
+          </div>
+          <div class="field-grid">
+            <div class="field">
+              <label for="originalPrice">原价 <small>人民币</small></label>
+              <input id="originalPrice" name="originalPrice" type="text" inputmode="decimal" value="39.9" placeholder="例如 39.90" autocomplete="off" aria-describedby="originalPriceMessage">
+              <p id="originalPriceMessage" class="field-message" aria-live="polite"></p>
+            </div>
+            <div class="field">
+              <label for="salePrice">团购价 <small>人民币</small></label>
+              <input id="salePrice" name="salePrice" type="text" inputmode="decimal" value="19.9" placeholder="例如 19.90" autocomplete="off" aria-describedby="salePriceMessage">
+              <p id="salePriceMessage" class="field-message" aria-live="polite"></p>
+            </div>
+            <div class="field span-2">
+              <label for="leaderNote">团长说</label>
+              <textarea id="leaderNote" name="leaderNote">我自己吃了两箱，真的甜！这个价格基本就是产地价了，库存不多，手慢无～</textarea>
+            </div>
+            <div class="field span-2">
+              <label for="shipping">规格／发货信息</label>
+              <input id="shipping" name="shipping" type="text" value="5斤/箱 · 默认圆通 · 48h 内发货 · 坏果包赔">
+            </div>
+            <div class="field">
+              <label for="buttonMain">按钮主文案</label>
+              <input id="buttonMain" name="buttonMain" type="text" value="长按识别 跟团购买">
+            </div>
+            <div class="field">
+              <label for="buttonSub">按钮副文案</label>
+              <input id="buttonSub" name="buttonSub" type="text" value="早买早发 · 手慢无">
+            </div>
+          </div>
+        </section>
+
+        <div class="editor-actions" aria-label="海报操作">
+          <p class="reset-note">恢复示例会替换当前填写的内容和已选图片，但保留当前版式。</p>
+          <button class="action-button reset" type="button">恢复示例</button>
+          <button class="action-button export" type="button">导出 PNG</button>
+          <p class="export-status" id="exportStatus" data-state="idle" aria-live="polite">导出后请在浏览器的下载列表中查看。</p>
+        </div>
+      </form>
+    </aside>
+
+    <section class="preview-stage" aria-label="海报预览">
+      <div class="poster-bench">
+        <div class="poster-frame">
+          <canvas id="posterCanvas" width="720" height="1280" aria-label="720 × 1280 像素海报画布"></canvas>
+        </div>
+      </div>
+    </section>
+  </main>
+  <script>
+    (() => {
+      "use strict";
+
+      const LIVE_FIELD_IDS = [
+        "topTag",
+        "brandName",
+        "productTitle",
+        "subtitle",
+        "leaderNote",
+        "shipping",
+        "buttonMain",
+        "buttonSub"
+      ];
+
+      const PLACEHOLDERS = {
+        topTag: "填写顶部标签",
+        brandName: "填写团长昵称／品牌",
+        productTitle: "填写商品标题",
+        subtitle: "填写商品副标题",
+        leaderNote: "填写团长推荐语",
+        shipping: "填写规格／发货信息",
+        buttonMain: "填写按钮主文案",
+        buttonSub: "填写按钮副文案"
+      };
+
+      const EXAMPLE_STATE = Object.freeze({
+        fields: Object.freeze({
+          topTag: "今日开团",
+          brandName: "小美优选·团长",
+          productTitle: "【新疆直发】阿克苏冰糖心苹果 5斤装",
+          subtitle: "咬一口爆汁甜脆 · 产地现摘现发",
+          leaderNote: "我自己吃了两箱，真的甜！这个价格基本就是产地价了，库存不多，手慢无～",
+          shipping: "5斤/箱 · 默认圆通 · 48h 内发货 · 坏果包赔",
+          buttonMain: "长按识别 跟团购买",
+          buttonSub: "早买早发 · 手慢无",
+          originalPrice: "39.9",
+          salePrice: "19.9"
+        }),
+        sellingPoints: Object.freeze([
+          "产地直发，没有中间商加价",
+          "冰糖心占比高，一口爆汁甜",
+          "坏果包赔，售后无忧"
+        ]),
+        imageRatio: "auto",
+        imageFit: "contain"
+      });
+
+      const MAX_POINTS = 6;
+      const sellingPoints = [...EXAMPLE_STATE.sellingPoints];
+
+      const FONT_FAMILY = '"PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif';
+      const canvas = document.getElementById("posterCanvas");
+      const context = canvas.getContext("2d");
+      const templateButtons = Array.from(document.querySelectorAll(".template-card[data-template]"));
+      const pointsList = document.getElementById("pointsList");
+      const pointsStatus = document.getElementById("pointsStatus");
+      const addPointButton = document.getElementById("addPoint");
+      const originalPriceInput = document.getElementById("originalPrice");
+      const salePriceInput = document.getElementById("salePrice");
+      const originalPriceMessage = document.getElementById("originalPriceMessage");
+      const salePriceMessage = document.getElementById("salePriceMessage");
+      const productImageInput = document.getElementById("productImage");
+      const qrImageInput = document.getElementById("qrImage");
+      const imageRatioSelect = document.getElementById("imageRatio");
+      const imageFitSelect = document.getElementById("imageFit");
+      const resetButton = document.querySelector(".action-button.reset");
+      const exportButton = document.querySelector(".action-button.export");
+      const exportStatus = document.getElementById("exportStatus");
+      const uploadSlots = {
+        product: {
+          input: productImageInput,
+          status: document.getElementById("productImageStatus"),
+          label: "商品主图"
+        },
+        qr: {
+          input: qrImageInput,
+          status: document.getElementById("qrImageStatus"),
+          label: "二维码"
+        }
+      };
+      const currentMedia = { product: null, qr: null };
+      const uploadGeneration = { product: 0, qr: 0 };
+      const imageLoadTasks = {
+        product: Promise.resolve(),
+        qr: Promise.resolve()
+      };
+      const SUPPORTED_IMAGE_TYPES = new Set(["image/png", "image/jpeg"]);
+      const MAX_IMAGE_FILE_BYTES = 20 * 1024 * 1024;
+      const MAX_IMAGE_PIXELS = 40_000_000;
+      const TEMPLATE_THEMES = {
+        classic: {
+          accent: "#f04f4f",
+          priceBackground: "#fff3f1",
+          leaderBackground: "#f4f6f3",
+          headerStyle: "filled"
+        },
+        clean: {
+          accent: "#13a8c7",
+          priceBackground: "#eefafd",
+          leaderBackground: "#f2f8f8",
+          headerStyle: "line"
+        },
+        boom: {
+          accent: "#ff6c35",
+          priceBackground: "#fff4ee",
+          leaderBackground: "#fff8f4",
+          headerStyle: "filled"
+        }
+      };
+      const PRICE_MAX_CENTS = 999999999n;
+      let currentTemplate = "classic";
+      let currentPriceState;
+
+      function setExportStatus(state, message) {
+        exportStatus.dataset.state = state;
+        exportStatus.textContent = message;
+      }
+
+      function canvasToPngBlob(targetCanvas) {
+        return new Promise((resolve, reject) => {
+          try {
+            targetCanvas.toBlob((blob) => {
+              if (blob) resolve(blob);
+              else reject(new Error("浏览器未能生成 PNG 图片。"));
+            }, "image/png");
+          } catch (error) {
+            reject(new Error(error?.message || "浏览器未能生成 PNG 图片。"));
+          }
+        });
+      }
+
+      function buildExportFileName(template) {
+        const templateNames = {
+          classic: "居中促销",
+          clean: "左图清单",
+          boom: "大图爆款"
+        };
+        const now = new Date();
+        const pad = (value) => String(value).padStart(2, "0");
+        const date = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`;
+        const time = `${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+        return `快团团海报-${templateNames[template] || "自定义"}-${date}-${time}.png`;
+      }
+
+      async function waitForCurrentImages() {
+        let pending;
+        do {
+          pending = [imageLoadTasks.product, imageLoadTasks.qr];
+          await Promise.all(pending);
+        } while (pending[0] !== imageLoadTasks.product || pending[1] !== imageLoadTasks.qr);
+      }
+
+      async function exportPosterPng() {
+        exportButton.disabled = true;
+        exportButton.textContent = "正在准备…";
+        setExportStatus("working", "正在等待图片读取并生成 720 × 1280 PNG…");
+
+        try {
+          await waitForCurrentImages();
+          const exportedTemplate = currentTemplate;
+          drawPoster();
+          if (canvas.width !== 720 || canvas.height !== 1280) {
+            throw new Error(`海报画布尺寸异常（${canvas.width} × ${canvas.height}）。`);
+          }
+
+          const blob = await canvasToPngBlob(canvas);
+          const fileName = buildExportFileName(exportedTemplate);
+          const objectUrl = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = objectUrl;
+          link.download = fileName;
+          document.body.append(link);
+          link.click();
+          link.remove();
+          window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+          setExportStatus("success", `下载已开始：${fileName}。请在浏览器的下载列表或默认下载文件夹中查看。`);
+        } catch (error) {
+          const reason = error instanceof Error && error.message
+            ? error.message
+            : "未知原因。";
+          setExportStatus("error", `导出失败：${reason}请稍后重试。`);
+        } finally {
+          exportButton.disabled = false;
+          exportButton.textContent = "导出 PNG";
+        }
+      }
+
+      function roundedRect(ctx, x, y, width, height, radius) {
+        const r = Math.min(radius, width / 2, height / 2);
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.arcTo(x + width, y, x + width, y + height, r);
+        ctx.arcTo(x + width, y + height, x, y + height, r);
+        ctx.arcTo(x, y + height, x, y, r);
+        ctx.arcTo(x, y, x + width, y, r);
+        ctx.closePath();
+      }
+
+      function setUploadStatus(slot, state, message) {
+        const status = uploadSlots[slot].status;
+        status.dataset.state = state;
+        status.textContent = message;
+      }
+
+      function clearImageSlot(slot) {
+        uploadGeneration[slot] += 1;
+        imageLoadTasks[slot] = Promise.resolve();
+        currentMedia[slot] = null;
+        uploadSlots[slot].input.value = "";
+        const placeholderMessage = slot === "product"
+          ? "尚未选择，海报显示商品图占位。"
+          : "尚未选择，海报显示二维码占位。";
+        setUploadStatus(slot, "empty", placeholderMessage);
+      }
+
+      function restoreExample() {
+        Object.entries(EXAMPLE_STATE.fields).forEach(([id, value]) => {
+          document.getElementById(id).value = value;
+        });
+        sellingPoints.splice(0, sellingPoints.length, ...EXAMPLE_STATE.sellingPoints);
+        imageRatioSelect.value = EXAMPLE_STATE.imageRatio;
+        imageFitSelect.value = EXAMPLE_STATE.imageFit;
+        clearImageSlot("product");
+        clearImageSlot("qr");
+        setExportStatus("idle", "已恢复示例内容，当前版式已保留。");
+        renderPointsEditor();
+        refreshPriceState();
+        drawPoster();
+      }
+
+      function validateImageFile(file) {
+        const extensionSupported = /\.(?:png|jpe?g)$/i.test(file.name || "");
+        const declaredType = String(file.type || "").toLowerCase();
+        if (!SUPPORTED_IMAGE_TYPES.has(declaredType) && !extensionSupported) {
+          return "不支持这种文件。请选择 PNG、JPG 或 JPEG 图片。";
+        }
+        return "";
+      }
+
+      function readBlobAsArrayBuffer(blob) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.addEventListener("load", () => resolve(reader.result));
+          reader.addEventListener("error", () => reject(new Error("read")));
+          reader.addEventListener("abort", () => reject(new Error("abort")));
+          reader.readAsArrayBuffer(blob);
+        });
+      }
+
+      async function detectImageType(file) {
+        const bytes = new Uint8Array(await readBlobAsArrayBuffer(file.slice(0, 12)));
+        const isPng = bytes.length >= 8
+          && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47
+          && bytes[4] === 0x0d && bytes[5] === 0x0a && bytes[6] === 0x1a && bytes[7] === 0x0a;
+        const isJpeg = bytes.length >= 3
+          && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+        if (isPng) return "image/png";
+        if (isJpeg) return "image/jpeg";
+        return "";
+      }
+
+      function readFileAsDataURL(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.addEventListener("load", () => resolve(reader.result));
+          reader.addEventListener("error", () => reject(new Error("read")));
+          reader.addEventListener("abort", () => reject(new Error("abort")));
+          reader.readAsDataURL(file);
+        });
+      }
+
+      function decodeLocalImage(source) {
+        return new Promise((resolve, reject) => {
+          const image = new Image();
+          image.addEventListener("load", () => {
+            if (image.naturalWidth > 0 && image.naturalHeight > 0) resolve(image);
+            else reject(new Error("decode"));
+          });
+          image.addEventListener("error", () => reject(new Error("decode")));
+          image.src = source;
+        });
+      }
+
+      async function loadLocalImage(file, slot) {
+        const slotConfig = uploadSlots[slot];
+        const requestId = ++uploadGeneration[slot];
+        const validationError = validateImageFile(file);
+        if (validationError) {
+          setUploadStatus(slot, "error", validationError);
+          slotConfig.input.value = "";
+          return;
+        }
+        if (file.size > MAX_IMAGE_FILE_BYTES) {
+          setUploadStatus(slot, "error", "图片文件过大，请选择不超过 20 MB 的 PNG 或 JPG。 ");
+          slotConfig.input.value = "";
+          return;
+        }
+
+        setUploadStatus(slot, "loading", `正在读取${slotConfig.label}…`);
+        try {
+          const detectedType = await detectImageType(file);
+          if (requestId !== uploadGeneration[slot]) return;
+          if (!detectedType) {
+            setUploadStatus(slot, "error", "文件可能已损坏，或实际格式不是 PNG/JPG，请重新选择。 ");
+            return;
+          }
+          const source = await readFileAsDataURL(file);
+          if (requestId !== uploadGeneration[slot]) return;
+          const image = await decodeLocalImage(source);
+          if (requestId !== uploadGeneration[slot]) return;
+          if (image.naturalWidth * image.naturalHeight > MAX_IMAGE_PIXELS) {
+            setUploadStatus(slot, "error", "图片尺寸过大，请选择总像素不超过 4000 万的图片。 ");
+            return;
+          }
+          currentMedia[slot] = {
+            image,
+            source,
+            fileName: file.name || `${slotConfig.label}图片`,
+            mimeType: detectedType
+          };
+          const format = detectedType === "image/png" ? "PNG" : "JPG";
+          setUploadStatus(slot, "ready", `当前：${currentMedia[slot].fileName}（${format} · ${image.naturalWidth} × ${image.naturalHeight}），点击上方可更换。`);
+          drawPoster();
+        } catch (error) {
+          if (requestId !== uploadGeneration[slot]) return;
+          const message = error.message === "read" || error.message === "abort"
+            ? "浏览器无法读取这个文件，请确认文件可访问后重新选择。"
+            : "图片可能已损坏，或内容不是有效的 PNG/JPG，请重新选择。";
+          setUploadStatus(slot, "error", message);
+        } finally {
+          if (requestId === uploadGeneration[slot]) slotConfig.input.value = "";
+        }
+      }
+
+      function drawImageInBox(ctx, image, x, y, width, height, fit = "contain", radius = 0, smoothing = true) {
+        const scale = fit === "cover"
+          ? Math.max(width / image.naturalWidth, height / image.naturalHeight)
+          : Math.min(width / image.naturalWidth, height / image.naturalHeight);
+        const drawWidth = image.naturalWidth * scale;
+        const drawHeight = image.naturalHeight * scale;
+        const drawX = x + (width - drawWidth) / 2;
+        const drawY = y + (height - drawHeight) / 2;
+
+        ctx.save();
+        if (radius > 0) {
+          roundedRect(ctx, x, y, width, height, radius);
+          ctx.clip();
+        }
+        ctx.imageSmoothingEnabled = smoothing;
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(image, drawX, drawY, drawWidth, drawHeight);
+        ctx.restore();
+        return {
+          drawX,
+          drawY,
+          drawWidth,
+          drawHeight,
+          cropAxis: fit !== "cover" || (drawWidth <= width && drawHeight <= height)
+            ? "none"
+            : drawWidth > width ? "horizontal" : "vertical"
+        };
+      }
+
+      function resolveImageRatio(image, selectedRatio) {
+        const sourceAspect = image ? image.naturalWidth / image.naturalHeight : null;
+        if (selectedRatio === "3:4") return { name: "3:4", aspect: 3 / 4 };
+        if (selectedRatio === "1:1") return { name: "1:1", aspect: 1 };
+        if (selectedRatio === "original") {
+          return { name: "original", aspect: sourceAspect };
+        }
+        if (!sourceAspect) return { name: "auto", aspect: null };
+        if (sourceAspect < 0.9) return { name: "3:4", aspect: 3 / 4 };
+        if (sourceAspect <= 1.1) return { name: "1:1", aspect: 1 };
+        return { name: "original", aspect: sourceAspect };
+      }
+
+      function resolveProductFrame(container, image, selectedRatio) {
+        const resolved = resolveImageRatio(image, selectedRatio);
+        const ratioAspect = resolved.aspect || 1;
+        let frameWidth = container.width;
+        let frameHeight = frameWidth / ratioAspect;
+        if (frameHeight > container.height) {
+          frameHeight = container.height;
+          frameWidth = frameHeight * ratioAspect;
+        }
+        const frame = {
+          x: container.x + (container.width - frameWidth) / 2,
+          y: container.y + (container.height - frameHeight) / 2,
+          width: frameWidth,
+          height: frameHeight
+        };
+        return {
+          ...frame,
+          resolved,
+          ratioBox: {
+            x: frame.x,
+            y: frame.y,
+            width: frame.width,
+            height: frame.height
+          }
+        };
+      }
+
+      function resolveTemplateMediaLayout(template, pointCount) {
+        if (template === "clean") {
+          return {
+            imageContainer: { x: 40, y: 330, width: 310, height: 310 },
+            pointsPlacement: "right",
+            pointsStartX: 398,
+            pointsMarkerX: 374,
+            pointsStartY: 356,
+            pointsWidth: 286,
+            pointRowHeight: 64,
+            pointLineHeight: 25,
+            pointMaxLines: 2,
+            pointFontSize: 19
+          };
+        }
+        if (template === "boom") {
+          const imageHeight = pointCount === 0 ? 430 : Math.max(240, 390 - pointCount * 30);
+          const pointsStartY = 330 + imageHeight + 26;
+          return {
+            imageContainer: { x: 40, y: 330, width: 640, height: imageHeight },
+            pointsPlacement: "below",
+            pointsStartX: 86,
+            pointsMarkerX: 58,
+            pointsStartY,
+            pointsWidth: 574,
+            pointRowHeight: pointCount ? Math.max(24, Math.floor((766 - pointsStartY) / pointCount)) : 0,
+            pointLineHeight: 24,
+            pointMaxLines: 1,
+            pointFontSize: 19
+          };
+        }
+        const pointAreaHeight = pointCount ? pointCount * 30 + 16 : 0;
+        const imageHeight = 440 - pointAreaHeight;
+        return {
+          imageContainer: { x: 40, y: 330, width: 640, height: imageHeight },
+          pointsPlacement: "below",
+          pointsStartX: 86,
+          pointsMarkerX: 58,
+          pointsStartY: 330 + imageHeight + 28,
+          pointsWidth: 574,
+          pointRowHeight: 30,
+          pointLineHeight: 28,
+          pointMaxLines: 1,
+          pointFontSize: 21
+        };
+      }
+
+      function readField(id) {
+        const element = document.getElementById(id);
+        const value = typeof element?.value === "string" ? element.value.trim() : "";
+        return {
+          text: value || PLACEHOLDERS[id],
+          isPlaceholder: value.length === 0
+        };
+      }
+
+      function addEllipsis(ctx, text, maxWidth) {
+        const ellipsis = "…";
+        const characters = Array.from(text);
+        while (characters.length && ctx.measureText(characters.join("") + ellipsis).width > maxWidth) {
+          characters.pop();
+        }
+        return characters.join("") + ellipsis;
+      }
+
+      function wrapText(ctx, text, maxWidth, maxLines) {
+        const paragraphs = String(text).replace(/\r/g, "").split("\n");
+        const lines = [];
+        let truncated = false;
+
+        paragraphLoop:
+        for (let paragraphIndex = 0; paragraphIndex < paragraphs.length; paragraphIndex += 1) {
+          const characters = Array.from(paragraphs[paragraphIndex]);
+          let line = "";
+
+          if (characters.length === 0) {
+            if (lines.length < maxLines) lines.push("");
+            else truncated = true;
+            continue;
+          }
+
+          for (let characterIndex = 0; characterIndex < characters.length; characterIndex += 1) {
+            const character = characters[characterIndex];
+            const candidate = line + character;
+            if (!line || ctx.measureText(candidate).width <= maxWidth) {
+              line = candidate;
+              continue;
+            }
+
+            lines.push(line);
+            line = character;
+            if (lines.length === maxLines) {
+              truncated = true;
+              break paragraphLoop;
+            }
+          }
+
+          if (line) {
+            if (lines.length < maxLines) lines.push(line);
+            else truncated = true;
+          }
+
+          if (paragraphIndex < paragraphs.length - 1 && lines.length === maxLines) {
+            truncated = true;
+            break;
+          }
+        }
+
+        if (truncated && lines.length) {
+          lines[lines.length - 1] = addEllipsis(ctx, lines[lines.length - 1], maxWidth);
+        }
+        return lines.slice(0, maxLines);
+      }
+
+      function drawTextBlock(ctx, field, options) {
+        const {
+          x,
+          y,
+          maxWidth,
+          lineHeight,
+          maxLines,
+          font,
+          color,
+          placeholderColor = "#9aa19c",
+          align = "left"
+        } = options;
+
+        ctx.save();
+        ctx.font = font;
+        ctx.fillStyle = field.isPlaceholder ? placeholderColor : color;
+        ctx.textAlign = align;
+        ctx.textBaseline = "alphabetic";
+        const lines = wrapText(ctx, field.text, maxWidth, maxLines);
+        lines.forEach((line, index) => {
+          ctx.fillText(line, x, y + index * lineHeight);
+        });
+        ctx.restore();
+        return lines;
+      }
+
+      function visibleSellingPoints() {
+        return sellingPoints
+          .map((point) => point.trim())
+          .filter(Boolean)
+          .slice(0, MAX_POINTS);
+      }
+
+      function parsePrice(rawValue, label) {
+        const raw = String(rawValue ?? "").trim();
+        if (!raw) {
+          return {
+            status: "empty",
+            message: `请填写${label}，未填写时海报不会显示为 0 元。`
+          };
+        }
+        if (raw.startsWith("-")) {
+          return {
+            status: "invalid",
+            message: `${label}不能为负数，请输入大于或等于 0 的金额。`
+          };
+        }
+        if (/^\d+\.\d{3,}$/.test(raw)) {
+          return {
+            status: "invalid",
+            message: `${label}最多保留两位小数。`
+          };
+        }
+        if (!/^\d+(?:\.\d{0,2})?$/.test(raw)) {
+          return {
+            status: "invalid",
+            message: `请输入有效金额，例如 39.90，最多保留两位小数。`
+          };
+        }
+
+        const [yuanPart, decimalPart = ""] = raw.split(".");
+        const cents = BigInt(yuanPart) * 100n + BigInt((decimalPart + "00").slice(0, 2));
+        if (cents > PRICE_MAX_CENTS) {
+          return {
+            status: "invalid",
+            message: `${label}金额过大，请输入不超过 9999999.99 的金额。`
+          };
+        }
+        return {
+          status: "valid",
+          cents,
+          display: formatPrice(cents),
+          message: `海报将显示为 ¥${formatPrice(cents)}。`
+        };
+      }
+
+      function formatPrice(cents) {
+        const yuan = cents / 100n;
+        const decimal = String(cents % 100n).padStart(2, "0");
+        return `${yuan}.${decimal}`;
+      }
+
+      function updatePriceMessage(input, messageElement, result) {
+        input.setAttribute("aria-invalid", result.status === "invalid" ? "true" : "false");
+        messageElement.textContent = result.message;
+        messageElement.className = `field-message ${
+          result.status === "invalid"
+            ? "is-error"
+            : result.status === "empty"
+              ? "is-warning"
+              : "is-valid"
+        }`;
+      }
+
+      function refreshPriceState() {
+        const original = parsePrice(originalPriceInput.value, "原价");
+        const sale = parsePrice(salePriceInput.value, "团购价");
+        updatePriceMessage(originalPriceInput, originalPriceMessage, original);
+        updatePriceMessage(salePriceInput, salePriceMessage, sale);
+
+        let discountLabel = "立即跟团";
+        if (original.status === "valid" && sale.status === "valid" && original.cents > sale.cents) {
+          const savedCents = original.cents - sale.cents;
+          const roundedYuan = (savedCents + 50n) / 100n;
+          discountLabel = `立省 ¥${roundedYuan}`;
+        }
+
+        currentPriceState = {
+          original,
+          sale,
+          originalDisplay: original.status === "valid" ? original.display : "原价待填写",
+          saleDisplay: sale.status === "valid" ? sale.display : "团购价待填写",
+          discountLabel
+        };
+        return currentPriceState;
+      }
+
+      function updatePointControls() {
+        const count = sellingPoints.length;
+        const visibleCount = visibleSellingPoints().length;
+        const atLimit = count >= MAX_POINTS;
+        addPointButton.disabled = atLimit;
+        addPointButton.textContent = atLimit
+          ? `已达上限（${MAX_POINTS}/${MAX_POINTS} 条）`
+          : `＋ 添加一条卖点（${count}/${MAX_POINTS}）`;
+        pointsStatus.textContent = `已添加 ${count}/${MAX_POINTS} 条，海报显示 ${visibleCount} 条非空卖点。`;
+      }
+
+      function renderPointsEditor(focusIndex = -1) {
+        pointsList.replaceChildren();
+
+        if (sellingPoints.length === 0) {
+          const empty = document.createElement("p");
+          empty.className = "empty-points";
+          empty.textContent = "暂无卖点，可点击下方按钮添加，最多 6 条。";
+          pointsList.append(empty);
+        }
+
+        sellingPoints.forEach((point, index) => {
+          const row = document.createElement("div");
+          row.className = "point-row";
+
+          const number = document.createElement("span");
+          number.className = "point-index";
+          number.textContent = String(index + 1);
+
+          const input = document.createElement("input");
+          input.type = "text";
+          input.value = point;
+          input.setAttribute("aria-label", `卖点 ${index + 1}`);
+          input.addEventListener("input", () => {
+            sellingPoints[index] = input.value;
+            updatePointControls();
+            drawPoster();
+          });
+
+          const remove = document.createElement("button");
+          remove.type = "button";
+          remove.className = "remove-point";
+          remove.textContent = "×";
+          remove.setAttribute("aria-label", `删除卖点 ${index + 1}`);
+          remove.addEventListener("click", () => {
+            sellingPoints.splice(index, 1);
+            renderPointsEditor();
+            drawPoster();
+          });
+
+          row.append(number, input, remove);
+          pointsList.append(row);
+          if (index === focusIndex) input.focus();
+        });
+
+        updatePointControls();
+      }
+
+      function drawPoster() {
+        const ctx = context;
+        const theme = TEMPLATE_THEMES[currentTemplate];
+        canvas.dataset.activeTemplate = currentTemplate;
+        canvas.dataset.themeAccent = theme.accent;
+        canvas.dataset.productImageStatus = currentMedia.product ? "ready" : "empty";
+        canvas.dataset.qrImageStatus = currentMedia.qr ? "ready" : "empty";
+        canvas.dataset.productImageName = currentMedia.product?.fileName || "";
+        canvas.dataset.qrImageName = currentMedia.qr?.fileName || "";
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        if (theme.headerStyle === "filled") {
+          ctx.fillStyle = theme.accent;
+          ctx.fillRect(0, 0, 720, 112);
+        } else {
+          ctx.fillStyle = theme.accent;
+          ctx.fillRect(0, 108, 720, 4);
+        }
+
+        const brand = readField("brandName");
+        drawTextBlock(ctx, brand, {
+          x: 40,
+          y: 69,
+          maxWidth: 410,
+          lineHeight: 34,
+          maxLines: 1,
+          font: `800 29px ${FONT_FAMILY}`,
+          color: theme.headerStyle === "filled" ? "#ffffff" : "#202421",
+          placeholderColor: theme.headerStyle === "filled" ? "rgba(255,255,255,0.74)" : "#8b938d"
+        });
+
+        const tag = readField("topTag");
+        ctx.save();
+        ctx.font = `800 23px ${FONT_FAMILY}`;
+        const tagText = wrapText(ctx, tag.text, 170, 1)[0] || PLACEHOLDERS.topTag;
+        const tagWidth = Math.min(214, Math.max(126, ctx.measureText(tagText).width + 44));
+        const tagX = 680 - tagWidth;
+        roundedRect(ctx, tagX, 28, tagWidth, 56, 28);
+        ctx.fillStyle = theme.headerStyle === "filled" ? "rgba(255,255,255,0.22)" : theme.accent;
+        ctx.fill();
+        ctx.restore();
+        drawTextBlock(ctx, tag, {
+          x: tagX + tagWidth / 2,
+          y: 64,
+          maxWidth: tagWidth - 30,
+          lineHeight: 28,
+          maxLines: 1,
+          font: `800 23px ${FONT_FAMILY}`,
+          color: "#ffffff",
+          placeholderColor: "rgba(255,255,255,0.76)",
+          align: "center"
+        });
+
+        const titleField = readField("productTitle");
+        ctx.save();
+        ctx.font = `900 42px ${FONT_FAMILY}`;
+        canvas.dataset.titleLines = String(wrapText(ctx, titleField.text, 640, 2).length);
+        ctx.restore();
+        drawTextBlock(ctx, titleField, {
+          x: 40,
+          y: 166,
+          maxWidth: 640,
+          lineHeight: 50,
+          maxLines: 2,
+          font: `900 42px ${FONT_FAMILY}`,
+          color: "#202421"
+        });
+
+        const subtitleY = 266;
+        const subtitleField = readField("subtitle");
+        ctx.save();
+        ctx.font = `700 20px ${FONT_FAMILY}`;
+        const subtitleTextWidth = ctx.measureText(subtitleField.text).width;
+        ctx.restore();
+        const subtitleWidth = Math.min(600, subtitleTextWidth + 34);
+        const subtitleHeight = 42;
+        const subtitleX = 40;
+        canvas.dataset.subtitleX = String(subtitleX);
+        canvas.dataset.subtitleWidth = String(subtitleWidth);
+        canvas.dataset.subtitleHeight = String(subtitleHeight);
+        canvas.dataset.subtitleLines = "1";
+        canvas.dataset.subtitleAlign = "left";
+        roundedRect(ctx, subtitleX, subtitleY, subtitleWidth, subtitleHeight, 21);
+        ctx.fillStyle = "#f4f6f3";
+        ctx.fill();
+        drawTextBlock(ctx, subtitleField, {
+          x: subtitleX + 17,
+          y: subtitleY + 28,
+          maxWidth: subtitleWidth - 34,
+          lineHeight: 21,
+          maxLines: 1,
+          font: `700 20px ${FONT_FAMILY}`,
+          color: "#69726b"
+        });
+
+        const pointItems = visibleSellingPoints();
+        canvas.dataset.visiblePoints = String(pointItems.length);
+        const mediaLayout = resolveTemplateMediaLayout(currentTemplate, pointItems.length);
+        const imageContainer = mediaLayout.imageContainer;
+        const imageFrame = resolveProductFrame(
+          imageContainer,
+          currentMedia.product?.image || null,
+          imageRatioSelect.value
+        );
+        canvas.dataset.pointsPlacement = mediaLayout.pointsPlacement;
+        canvas.dataset.pointsStartX = String(mediaLayout.pointsStartX);
+        canvas.dataset.pointsStartY = String(mediaLayout.pointsStartY);
+        canvas.dataset.selectedImageRatio = imageRatioSelect.value;
+        canvas.dataset.resolvedImageRatio = imageFrame.resolved.name;
+        canvas.dataset.selectedImageFit = imageFitSelect.value;
+        canvas.dataset.imageFrameX = String(imageFrame.x);
+        canvas.dataset.imageFrameY = String(imageFrame.y);
+        canvas.dataset.imageFrameWidth = String(imageFrame.width);
+        canvas.dataset.imageFrameHeight = String(imageFrame.height);
+        canvas.dataset.imageFrameAspect = String(imageFrame.width / imageFrame.height);
+        canvas.dataset.imageRatioBoxX = String(imageFrame.ratioBox.x);
+        canvas.dataset.imageRatioBoxY = String(imageFrame.ratioBox.y);
+        canvas.dataset.imageRatioBoxWidth = String(imageFrame.ratioBox.width);
+        canvas.dataset.imageRatioBoxHeight = String(imageFrame.ratioBox.height);
+        canvas.dataset.imageRatioBoxAspect = String(imageFrame.ratioBox.width / imageFrame.ratioBox.height);
+
+        if (currentMedia.product) {
+          if (imageFitSelect.value === "contain") {
+            ctx.save();
+            roundedRect(ctx, imageFrame.x, imageFrame.y, imageFrame.width, imageFrame.height, 20);
+            ctx.clip();
+            ctx.filter = "blur(24px)";
+            drawImageInBox(
+              ctx,
+              currentMedia.product.image,
+              imageFrame.x - 28,
+              imageFrame.y - 28,
+              imageFrame.width + 56,
+              imageFrame.height + 56,
+              "cover",
+              0,
+              true
+            );
+            ctx.filter = "none";
+            ctx.fillStyle = "rgba(255,255,255,0.16)";
+            ctx.fillRect(imageFrame.x, imageFrame.y, imageFrame.width, imageFrame.height);
+            ctx.restore();
+            canvas.dataset.imageBackdrop = "blurred";
+          } else {
+            canvas.dataset.imageBackdrop = "none";
+          }
+          const placement = drawImageInBox(
+            ctx,
+            currentMedia.product.image,
+            imageFrame.x,
+            imageFrame.y,
+            imageFrame.width,
+            imageFrame.height,
+            imageFitSelect.value,
+            20,
+            true
+          );
+          canvas.dataset.imageDrawWidth = String(placement.drawWidth);
+          canvas.dataset.imageDrawHeight = String(placement.drawHeight);
+          canvas.dataset.imageDrawAspect = String(placement.drawWidth / placement.drawHeight);
+          canvas.dataset.imageCropAxis = placement.cropAxis;
+          canvas.dataset.imageBorder = "none";
+        } else {
+          canvas.dataset.imageBackdrop = "placeholder";
+          canvas.dataset.imageBorder = "dashed";
+          ctx.save();
+          ctx.setLineDash([10, 10]);
+          ctx.strokeStyle = "#cbd0cc";
+          ctx.lineWidth = 2;
+          roundedRect(ctx, imageFrame.x, imageFrame.y, imageFrame.width, imageFrame.height, 20);
+          ctx.stroke();
+          ctx.restore();
+          const imageCenterX = imageFrame.x + imageFrame.width / 2;
+          const imageCenterY = imageFrame.y + imageFrame.height / 2;
+          const placeholderMaxWidth = Math.max(40, imageFrame.width - 24);
+          ctx.save();
+          roundedRect(ctx, imageFrame.x, imageFrame.y, imageFrame.width, imageFrame.height, 20);
+          ctx.clip();
+          drawTextBlock(ctx, { text: "商品主图", isPlaceholder: true }, {
+            x: imageCenterX,
+            y: imageCenterY - 14,
+            maxWidth: placeholderMaxWidth,
+            lineHeight: 26,
+            maxLines: 1,
+            font: `700 24px ${FONT_FAMILY}`,
+            color: "#8b938d",
+            placeholderColor: "#8b938d",
+            align: "center"
+          });
+          drawTextBlock(ctx, { text: "选择 PNG/JPG 图片", isPlaceholder: true }, {
+            x: imageCenterX,
+            y: imageCenterY + 22,
+            maxWidth: placeholderMaxWidth,
+            lineHeight: 20,
+            maxLines: 2,
+            font: `500 17px ${FONT_FAMILY}`,
+            color: "#8b938d",
+            placeholderColor: "#8b938d",
+            align: "center"
+          });
+          ctx.restore();
+        }
+
+        let pointY = mediaLayout.pointsStartY;
+        let pointsVisibleBottom = null;
+        pointItems.forEach((point, index) => {
+          ctx.fillStyle = theme.accent;
+          ctx.beginPath();
+          ctx.arc(mediaLayout.pointsMarkerX, pointY - 8, 14, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = "#ffffff";
+          ctx.font = `900 17px ${FONT_FAMILY}`;
+          ctx.textAlign = "center";
+          ctx.fillText(String(index + 1), mediaLayout.pointsMarkerX, pointY - 2);
+          ctx.textAlign = "left";
+          const pointLines = drawTextBlock(ctx, { text: point, isPlaceholder: false }, {
+            x: mediaLayout.pointsStartX,
+            y: pointY,
+            maxWidth: mediaLayout.pointsWidth,
+            lineHeight: mediaLayout.pointLineHeight,
+            maxLines: mediaLayout.pointMaxLines,
+            font: `700 ${mediaLayout.pointFontSize}px ${FONT_FAMILY}`,
+            color: "#303632"
+          });
+          const markerBottom = pointY + 6;
+          const textBottom = pointY
+            + Math.max(0, pointLines.length - 1) * mediaLayout.pointLineHeight
+            + 6;
+          pointsVisibleBottom = Math.max(pointsVisibleBottom ?? -Infinity, markerBottom, textBottom);
+          pointY += mediaLayout.pointRowHeight;
+        });
+
+        const imageContentBottom = imageFrame.y + imageFrame.height;
+        const pointsContentBottom = pointItems.length
+          ? pointsVisibleBottom
+          : imageContentBottom;
+        const layoutContentBottom = Math.max(imageContentBottom, pointsContentBottom);
+        const maximumPriceY = 786;
+        const priceY = currentTemplate === "clean"
+          ? Math.min(maximumPriceY, layoutContentBottom + 24)
+          : maximumPriceY;
+        const leaderY = priceY + 86;
+        canvas.dataset.pointsVisibleBottom = pointsVisibleBottom === null
+          ? ""
+          : String(pointsVisibleBottom);
+        canvas.dataset.layoutContentBottom = String(layoutContentBottom);
+        canvas.dataset.layoutSafe = String(
+          layoutContentBottom < priceY && leaderY + 166 <= 1038
+        );
+        const priceCardBackground = theme.priceBackground;
+        const leaderCardBackground = theme.leaderBackground;
+        canvas.dataset.priceY = String(priceY);
+        canvas.dataset.leaderY = String(leaderY);
+        canvas.dataset.priceCardBackground = priceCardBackground;
+        canvas.dataset.leaderCardBackground = leaderCardBackground;
+
+        roundedRect(ctx, 40, leaderY, 640, 166, 22);
+        ctx.fillStyle = leaderCardBackground;
+        ctx.fill();
+        ctx.fillStyle = theme.accent;
+        ctx.font = `800 23px ${FONT_FAMILY}`;
+        ctx.fillText("团长说", 66, leaderY + 42);
+        drawTextBlock(ctx, readField("leaderNote"), {
+          x: 66,
+          y: leaderY + 80,
+          maxWidth: 588,
+          lineHeight: 29,
+          maxLines: 3,
+          font: `600 22px ${FONT_FAMILY}`,
+          color: "#3f4641"
+        });
+
+        const prices = currentPriceState || refreshPriceState();
+        canvas.dataset.originalPriceStatus = prices.original.status;
+        canvas.dataset.salePriceStatus = prices.sale.status;
+        canvas.dataset.originalPriceDisplay = prices.originalDisplay;
+        canvas.dataset.salePriceDisplay = prices.saleDisplay;
+        canvas.dataset.discountLabel = prices.discountLabel;
+
+        roundedRect(ctx, 40, priceY, 640, 68, 18);
+        ctx.fillStyle = priceCardBackground;
+        ctx.fill();
+
+        if (prices.sale.status === "valid") {
+          drawTextBlock(ctx, { text: `¥${prices.saleDisplay}`, isPlaceholder: false }, {
+            x: 60,
+            y: priceY + 47,
+            maxWidth: 225,
+            lineHeight: 38,
+            maxLines: 1,
+            font: `950 38px ${FONT_FAMILY}`,
+            color: theme.accent
+          });
+        } else {
+          drawTextBlock(ctx, { text: prices.saleDisplay, isPlaceholder: true }, {
+            x: 60,
+            y: priceY + 43,
+            maxWidth: 225,
+            lineHeight: 26,
+            maxLines: 1,
+            font: `700 21px ${FONT_FAMILY}`,
+            color: "#8b938d"
+          });
+        }
+
+        ctx.save();
+        ctx.font = `600 20px ${FONT_FAMILY}`;
+        ctx.fillStyle = prices.original.status === "valid" ? "#909791" : "#a4aaa5";
+        const originalText = prices.original.status === "valid"
+          ? `原价 ¥${prices.originalDisplay}`
+          : prices.originalDisplay;
+        const originalTextX = 298;
+        const originalTextY = priceY + 41;
+        const clippedOriginal = wrapText(ctx, originalText, 200, 1)[0] || originalText;
+        ctx.fillText(clippedOriginal, originalTextX, originalTextY);
+        if (prices.original.status === "valid") {
+          const originalWidth = Math.min(200, ctx.measureText(clippedOriginal).width);
+          ctx.strokeStyle = "#909791";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(originalTextX, originalTextY - 8);
+          ctx.lineTo(originalTextX + originalWidth, originalTextY - 8);
+          ctx.stroke();
+        }
+        ctx.restore();
+
+        roundedRect(ctx, 526, priceY + 12, 132, 44, 22);
+        ctx.fillStyle = theme.accent;
+        ctx.fill();
+        drawTextBlock(ctx, { text: prices.discountLabel, isPlaceholder: false }, {
+          x: 592,
+          y: priceY + 41,
+          maxWidth: 108,
+          lineHeight: 24,
+          maxLines: 1,
+          font: `900 19px ${FONT_FAMILY}`,
+          color: "#ffffff",
+          align: "center"
+        });
+
+        const qrCardY = 1060;
+        const qrCardBottom = 1218;
+        const qrCardBackground = "#f4f6f3";
+        const qrRight = 156;
+        const textColumnX = 184;
+        const buttonSubY = 1140;
+        const shippingY = 1174;
+        canvas.dataset.qrCardY = String(qrCardY);
+        canvas.dataset.qrCardBottom = String(qrCardBottom);
+        canvas.dataset.qrCardBackground = qrCardBackground;
+        canvas.dataset.qrRight = String(qrRight);
+        canvas.dataset.shippingX = String(textColumnX);
+        canvas.dataset.buttonSubY = String(buttonSubY);
+        canvas.dataset.shippingY = String(shippingY);
+
+        roundedRect(ctx, 40, qrCardY, 640, qrCardBottom - qrCardY, 22);
+        ctx.fillStyle = qrCardBackground;
+        ctx.fill();
+
+        const qrQuietPadding = 10;
+        const qrImageBoxSize = 96 - qrQuietPadding * 2;
+        canvas.dataset.qrImageFit = "contain";
+        canvas.dataset.qrQuietPadding = String(qrQuietPadding);
+        canvas.dataset.qrImageBoxSize = String(qrImageBoxSize);
+        let qrMainField;
+        let qrSubField;
+        if (currentMedia.qr) {
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(60, 1091, 96, 96);
+          canvas.dataset.qrBackingShape = "square";
+          canvas.dataset.qrBackingBorder = "none";
+          const qrPlacement = drawImageInBox(
+            ctx,
+            currentMedia.qr.image,
+            60 + qrQuietPadding,
+            1091 + qrQuietPadding,
+            qrImageBoxSize,
+            qrImageBoxSize,
+            "contain",
+            0,
+            false
+          );
+          canvas.dataset.qrDrawWidth = String(qrPlacement.drawWidth);
+          canvas.dataset.qrDrawHeight = String(qrPlacement.drawHeight);
+          canvas.dataset.qrDrawAspect = String(qrPlacement.drawWidth / qrPlacement.drawHeight);
+          canvas.dataset.qrPlaceholder = "false";
+          canvas.dataset.qrPlaceholderLines = "";
+          canvas.dataset.qrActionMode = "live";
+          qrMainField = readField("buttonMain");
+          qrSubField = readField("buttonSub");
+        } else {
+          roundedRect(ctx, 60, 1091, 96, 96, 16);
+          ctx.fillStyle = "#ffffff";
+          ctx.fill();
+          ctx.strokeStyle = "#dce3de";
+          ctx.lineWidth = 2;
+          ctx.setLineDash([6, 6]);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          canvas.dataset.qrBackingShape = "rounded-placeholder";
+          canvas.dataset.qrBackingBorder = "dashed";
+          ctx.fillStyle = "#68716b";
+          ctx.font = `700 14px ${FONT_FAMILY}`;
+          ctx.textAlign = "center";
+          ctx.fillText("二维码", 108, 1123);
+          ctx.fillText("待上传", 108, 1144);
+          ctx.font = `600 12px ${FONT_FAMILY}`;
+          ctx.fillText("不可识别", 108, 1165);
+          ctx.textAlign = "left";
+          canvas.dataset.qrDrawWidth = "0";
+          canvas.dataset.qrDrawHeight = "0";
+          canvas.dataset.qrDrawAspect = "0";
+          canvas.dataset.qrPlaceholder = "true";
+          canvas.dataset.qrPlaceholderLines = "二维码|待上传|不可识别";
+          canvas.dataset.qrActionMode = "placeholder";
+          qrMainField = { text: "上传实际二维码", isPlaceholder: false };
+          qrSubField = { text: "当前仅为占位，不可识别", isPlaceholder: false };
+        }
+        canvas.dataset.qrMainText = qrMainField.text;
+        canvas.dataset.qrSubText = qrSubField.text;
+
+        drawTextBlock(ctx, qrMainField, {
+          x: textColumnX,
+          y: 1105,
+          maxWidth: 464,
+          lineHeight: 31,
+          maxLines: 1,
+          font: `900 28px ${FONT_FAMILY}`,
+          color: "#202421",
+          placeholderColor: "#858d87"
+        });
+        drawTextBlock(ctx, qrSubField, {
+          x: textColumnX,
+          y: buttonSubY,
+          maxWidth: 464,
+          lineHeight: 25,
+          maxLines: 1,
+          font: `600 20px ${FONT_FAMILY}`,
+          color: "#5f6862",
+          placeholderColor: "#929a94"
+        });
+
+        drawTextBlock(ctx, readField("shipping"), {
+          x: textColumnX,
+          y: shippingY,
+          maxWidth: 464,
+          lineHeight: 20,
+          maxLines: 2,
+          font: `600 16px ${FONT_FAMILY}`,
+          color: "#68716b",
+          placeholderColor: "#969d98"
+        });
+      }
+
+      LIVE_FIELD_IDS.forEach((id) => {
+        document.getElementById(id).addEventListener("input", drawPoster);
+      });
+
+      templateButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          currentTemplate = button.dataset.template;
+          templateButtons.forEach((item) => {
+            item.setAttribute("aria-pressed", String(item === button));
+          });
+          drawPoster();
+        });
+      });
+
+      [originalPriceInput, salePriceInput].forEach((input) => {
+        input.addEventListener("input", () => {
+          refreshPriceState();
+          drawPoster();
+        });
+      });
+
+      productImageInput.addEventListener("change", () => {
+        const [file] = productImageInput.files || [];
+        if (file) imageLoadTasks.product = loadLocalImage(file, "product");
+      });
+
+      qrImageInput.addEventListener("change", () => {
+        const [file] = qrImageInput.files || [];
+        if (file) imageLoadTasks.qr = loadLocalImage(file, "qr");
+      });
+
+      imageRatioSelect.addEventListener("change", drawPoster);
+      imageFitSelect.addEventListener("change", drawPoster);
+
+      addPointButton.addEventListener("click", () => {
+        if (sellingPoints.length >= MAX_POINTS) return;
+        sellingPoints.push("");
+        renderPointsEditor(sellingPoints.length - 1);
+        drawPoster();
+      });
+
+      exportButton.addEventListener("click", exportPosterPng);
+      resetButton.addEventListener("click", restoreExample);
+
+      renderPointsEditor();
+      refreshPriceState();
+      drawPoster();
+    })();
+  </script>
+</body>
+</html>
